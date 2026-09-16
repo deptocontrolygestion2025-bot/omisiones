@@ -393,3 +393,40 @@ if archivo:
         file_name="resultado.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
+# ==========================================
+# GRÁFICO: HORAS ASIGNADAS POR MES
+# ==========================================
+
+# Convertir FECHA a formato fecha
+df["FECHA"] = pd.to_datetime(df["FECHA"], errors="coerce")
+
+# Convertir OMISIONES a número
+df["OMISIONES"] = pd.to_numeric(df["OMISIONES"], errors="coerce").fillna(0)
+
+# Eliminar registros sin fecha
+df_grafico = df.dropna(subset=["FECHA"]).copy()
+
+# Obtener el mes
+df_grafico["MES"] = df_grafico["FECHA"].dt.month
+
+# Sumar las horas/omisiones por mes
+horas_mensuales = (
+    df_grafico
+    .groupby("MES")["OMISIONES"]
+    .sum()
+    .reindex(range(1, 13), fill_value=0)
+)
+
+# Nombres de los meses
+meses = [
+    "Enero", "Febrero", "Marzo", "Abril",
+    "Mayo", "Junio", "Julio", "Agosto",
+    "Septiembre", "Octubre", "Noviembre", "Diciembre"
+]
+
+horas_mensuales.index = meses
+
+# Mostrar gráfico
+st.subheader("Progreso mensual de horas asignadas")
+
+st.line_chart(horas_mensuales)
