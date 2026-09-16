@@ -513,3 +513,82 @@ else:
         fig,
         use_container_width=True
     )
+# =========================
+# EVOLUCIÓN POR ESPECIALIDAD
+# =========================
+
+tabla_especialidad_mes = (
+    df_grafico_filtrado
+    .groupby(
+        ["MES", "ESPECIALIDAD_FINAL"]
+    )
+    .size()
+    .reset_index(name="OMISIONES")
+    .sort_values("MES")
+)
+
+fig_especialidad = px.line(
+    tabla_especialidad_mes,
+    x="MES",
+    y="OMISIONES",
+    color="ESPECIALIDAD_FINAL",
+    markers=True,
+    title="Evolución Mensual de Omisiones por Especialidad",
+    labels={
+        "MES": "Mes",
+        "OMISIONES": "Omisiones",
+        "ESPECIALIDAD_FINAL": "Especialidad"
+    }
+)
+
+fig_especialidad.update_layout(
+    xaxis_title="Mes",
+    yaxis_title="Cantidad de Omisiones",
+    hovermode="x unified"
+)
+
+st.plotly_chart(
+    fig_especialidad,
+    use_container_width=True
+)
+# =========================
+# EVOLUCIÓN POR POLICLÍNICO
+# =========================
+
+tabla_policlinico_mes = (
+    df_grafico_filtrado
+    .groupby(
+        ["MES", "POLICLINICO"]
+    )
+    .size()
+    .reset_index(name="OMISIONES")
+    .sort_values("MES")
+)
+
+fig_policlinico = px.line(
+    tabla_policlinico_mes,
+    x="MES",
+    y="OMISIONES",
+    color="POLICLINICO",
+    markers=True,
+    title="Evolución Mensual de Omisiones por Policlínico",
+    labels={
+        "MES": "Mes",
+        "OMISIONES": "Omisiones",
+        "POLICLINICO": "Policlínico"
+    }
+)
+
+fig_policlinico.update_layout(
+    xaxis_title="Mes",
+    yaxis_title="Cantidad de Omisiones",
+    hovermode="x unified"
+)
+
+st.plotly_chart(
+    fig_policlinico,
+    use_container_width=True
+)
+df_asignadas = hoja1[
+    hoja1[col_h1_estado].astype(str).str.upper().eq("ASIGNADA")
+].copy()
