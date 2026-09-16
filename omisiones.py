@@ -592,3 +592,211 @@ st.plotly_chart(
 df_asignadas = hoja1[
     hoja1[col_h1_estado].astype(str).str.upper().eq("ASIGNADA")
 ].copy()
+# =========================
+# 📊 GRÁFICOS DE BARRAS
+# EVOLUCIÓN MENSUAL
+# =========================
+
+st.markdown("## 📊 Evolución Mensual de Omisiones")
+
+if "FECHA" not in df_asignadas.columns:
+    st.warning("No se encontró la columna FECHA en Hoja 1.")
+
+elif "POLICLINICO" not in df_asignadas.columns:
+    st.warning("No se encontró la columna POLICLINICO en Hoja 1.")
+
+else:
+
+    df_grafico = df_asignadas.copy()
+
+    # =========================
+    # CONVERTIR FECHA
+    # =========================
+
+    df_grafico["FECHA"] = pd.to_datetime(
+        df_grafico["FECHA"],
+        errors="coerce"
+    )
+
+    df_grafico = df_grafico.dropna(subset=["FECHA"])
+
+    # =========================
+    # CREAR MES
+    # =========================
+
+    df_grafico["MES_NUM"] = df_grafico["FECHA"].dt.month
+    df_grafico["AÑO"] = df_grafico["FECHA"].dt.year
+
+    meses = {
+        1: "Enero",
+        2: "Febrero",
+        3: "Marzo",
+        4: "Abril",
+        5: "Mayo",
+        6: "Junio",
+        7: "Julio",
+        8: "Agosto",
+        9: "Septiembre",
+        10: "Octubre",
+        11: "Noviembre",
+        12: "Diciembre"
+    }
+
+    df_grafico["MES"] = df_grafico["MES_NUM"].map(meses)
+
+    # =========================
+    # FILTROS
+    # =========================
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+
+        años = sorted(
+            df_grafico["AÑO"]
+            .dropna()
+            .unique()
+        )
+
+        año_seleccionado = st.selectbox(
+            "Año",
+            años
+        )
+
+    with col2:
+
+        especialidades = sorted(
+            df_grafico["ESPECIALIDAD_FINAL"]
+            .dropna()
+            .astype(str)
+            .unique()
+        )
+
+        especialidades_seleccionadas = st.multiselect(
+            "Especialidad",
+            especialidades,
+            default=especialidades
+        )
+
+    with col3:
+
+        policlinicos = sorted(
+            df_grafico["POLICLINICO"]
+            .dropna()
+            .astype(str)
+            .unique()
+        )
+
+        policlinicos_seleccionados = st.multiselect(
+            "Policlínico",
+            policlinicos,
+            default=policlinicos
+        )
+
+    # =========================
+    # FILTRAR
+    # =========================
+
+    df_grafico = df_grafico[
+        df_grafico["AÑO"] == año_seleccionado
+    ]
+
+    df_grafico = df_grafico[
+        df_grafico["ESPECIALIDAD_FINAL"]
+        .astype(str)
+        .isin(especialidades_seleccionadas)
+    ]
+
+    df_grafico = df_grafico[
+        df_grafico["POLICLINICO"]
+        .astype(str)
+        .isin(policlinicos_seleccionados)
+    ]
+
+    # =====================================================
+    # GRÁFICO 1
+    # OMISIONES POR ESPECIALIDAD Y MES
+    # =====================================================
+
+    tabla_especialidad_mes = (
+        df_grafico
+        .groupby(
+            ["MES_NUM", "MES", "ESPECIALIDAD_FINAL"]
+        )
+        .size()
+        .reset_index(name="OMISIONES")
+        .sort_values(["MES_NUM", "ESPECIALIDAD_FINAL"])
+    )
+
+    fig_especialidad = px.bar(
+        tabla_especialidad_mes,
+        x="MES",
+        y="OMISIONES",
+        color="ESPECIALIDAD_FINAL",
+        barmode="group",
+        category_orders={
+            "MES": list(meses.values())
+        },
+        title=f"Omisiones Mensuales por Especialidad - {año_seleccionado}",
+        labels={
+            "MES": "Mes",
+            "OMISIONES": "Cantidad de Omisiones",
+            "ESPECIALIDAD_FINAL": "Especialidad"
+        }
+    )
+
+    fig_especialidad.update_layout(
+        xaxis_title="Mes",
+        yaxis_title="Omisiones",
+        legend_title="Especialidad",
+        hovermode="x unified"
+    )
+
+    st.plotly_chart(
+        fig_especialidad,
+        use_container_width=True
+    )
+
+    # =====================================================
+    # GRÁFICO 2
+    # OMISIONES POR POLICLÍNICO Y MES
+    # =====================================================
+
+    tabla_policlinico_mes = (
+        df_grafico
+        .groupby(
+            ["MES_NUM", "MES", "POLICLINICO"]
+        )
+        .size()
+        .reset_index(name="OMISIONES")
+        .sort_values(["MES_NUM", "POLICLINICO"])
+    )
+
+    fig_policlinico = px.bar(
+        tabla_policlinico_mes,
+        x="MES",
+        y="OMISIONES",
+        color="POLICLINICO",
+        barmode="group",
+        category_orders={
+            "MES": list(meses.values())
+        },
+        title=f"Omisiones Mensuales por Policlínico - {año_seleccionado}",
+        labels={
+            "MES": "Mes",
+            "OMISIONES": "Cantidad de Omisiones",
+            "POLICLINICO": "Policlínico"
+        }
+    )
+
+    fig_policlinico.update_layout(
+        xaxis_title="Mes",
+        yaxis_title="Omisiones",
+        legend_title="Policlínico",
+        hovermode="x unified"
+    )
+
+    st.plotly_chart(
+        fig_policlinico,
+        use_container_width=True
+    )
