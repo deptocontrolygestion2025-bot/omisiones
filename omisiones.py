@@ -393,3 +393,123 @@ if archivo:
         file_name="resultado.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
+    # =========================
+# GRÁFICOS DE EVOLUCIÓN
+# =========================
+
+st.markdown("## 📈 Evolución Mensual de Omisiones")
+
+# Verificar que exista la columna FECHA
+if "FECHA" not in df_asignadas.columns:
+    st.warning("No se encontró la columna FECHA en Hoja 1.")
+else:
+
+    # Convertir FECHA a formato fecha
+    df_grafico = df_asignadas.copy()
+
+    df_grafico["FECHA"] = pd.to_datetime(
+        df_grafico["FECHA"],
+        errors="coerce"
+    )
+
+    # Eliminar registros sin fecha válida
+    df_grafico = df_grafico.dropna(subset=["FECHA"])
+
+    # Crear período mensual
+    df_grafico["MES"] = df_grafico["FECHA"].dt.to_period("M").astype(str)
+
+    # =========================
+    # FILTROS
+    # =========================
+
+    col_filtro1, col_filtro2 = st.columns(2)
+
+    especialidades_filtro = sorted(
+        df_grafico["ESPECIALIDAD_FINAL"]
+        .dropna()
+        .astype(str)
+        .unique()
+    )
+
+    policlinicos_filtro = sorted(
+        df_grafico["POLICLINICO"]
+        .dropna()
+        .astype(str)
+        .unique()
+    )
+
+    with col_filtro1:
+
+        especialidad_seleccionada = st.multiselect(
+            "Especialidad",
+            options=especialidades_filtro,
+            default=especialidades_filtro
+        )
+
+    with col_filtro2:
+
+        policlinico_seleccionado = st.multiselect(
+            "Policlínico",
+            options=policlinicos_filtro,
+            default=policlinicos_filtro
+        )
+
+    # =========================
+    # APLICAR FILTROS
+    # =========================
+
+    df_grafico_filtrado = df_grafico[
+        df_grafico["ESPECIALIDAD_FINAL"]
+        .astype(str)
+        .isin(especialidad_seleccionada)
+    ]
+
+    df_grafico_filtrado = df_grafico_filtrado[
+        df_grafico_filtrado["POLICLINICO"]
+        .astype(str)
+        .isin(policlinico_seleccionado)
+    ]
+
+    # =========================
+    # AGRUPAR POR MES
+    # =========================
+
+    tabla_mensual = (
+        df_grafico_filtrado
+        .groupby("MES")
+        .size()
+        .reset_index(name="OMISIONES")
+        .sort_values("MES")
+    )
+
+    # =========================
+    # GRÁFICO
+    # =========================
+
+    fig = px.line(
+        tabla_mensual,
+        x="MES",
+        y="OMISIONES",
+        markers=True,
+        title="Evolución Mensual de Omisiones",
+        labels={
+            "MES": "Mes",
+            "OMISIONES": "Cantidad de Omisiones"
+        }
+    )
+
+    fig.update_traces(
+        line=dict(width=3),
+        marker=dict(size=8)
+    )
+
+    fig.update_layout(
+        xaxis_title="Mes",
+        yaxis_title="Omisiones",
+        hovermode="x unified"
+    )
+
+    st.plotly_chart(
+        fig,
+        use_container_width=True
+    )
