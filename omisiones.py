@@ -393,19 +393,58 @@ if archivo:
         file_name="resultado.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
-    # =========================
-# GRÁFICOS DE EVOLUCIÓN
-# =========================
+# ============================================================
+# 📊 GRÁFICOS DE OMISIONES ASIGNADAS
+# ============================================================
 
-st.markdown("## 📈 Evolución Mensual de Omisiones")
+st.markdown("## 📊 Evolución Mensual de Omisiones")
 
-# Verificar que exista la columna FECHA
-if "FECHA" not in df_asignadas.columns:
-    st.warning("No se encontró la columna FECHA en Hoja 1.")
+# ------------------------------------------------------------
+# VALIDAR COLUMNAS NECESARIAS
+# ------------------------------------------------------------
+
+columnas_grafico = [
+    "FECHA",
+    "POLICLINICO",
+    "ESPECIALIDAD_FINAL",
+    col_h1_estado
+]
+
+columnas_faltantes = [
+    col for col in columnas_grafico
+    if col not in df_asignadas.columns
+]
+
+if columnas_faltantes:
+
+    st.error(
+        "No se pueden generar los gráficos. "
+        f"Faltan las siguientes columnas: {columnas_faltantes}"
+    )
+
 else:
 
-    # Convertir FECHA a formato fecha
+    # --------------------------------------------------------
+    # COPIA DE LA BASE DE ASIGNADAS
+    # --------------------------------------------------------
+
     df_grafico = df_asignadas.copy()
+
+    # --------------------------------------------------------
+    # ASEGURAR QUE SOLO SE CONSIDEREN ASIGNADAS
+    # --------------------------------------------------------
+
+    df_grafico = df_grafico[
+        df_grafico[col_h1_estado]
+        .astype(str)
+        .str.strip()
+        .str.upper()
+        .eq("ASIGNADA")
+    ].copy()
+
+    # --------------------------------------------------------
+    # CONVERTIR FECHA
+    # --------------------------------------------------------
 
     df_grafico["FECHA"] = pd.to_datetime(
         df_grafico["FECHA"],
@@ -413,219 +452,24 @@ else:
     )
 
     # Eliminar registros sin fecha válida
-    df_grafico = df_grafico.dropna(subset=["FECHA"])
+    df_grafico = df_grafico.dropna(
+        subset=["FECHA"]
+    ).copy()
 
-    # Crear período mensual
-    df_grafico["MES"] = df_grafico["FECHA"].dt.to_period("M").astype(str)
+    # --------------------------------------------------------
+    # CREAR AÑO Y MES
+    # --------------------------------------------------------
 
-    # =========================
-    # FILTROS
-    # =========================
-
-    col_filtro1, col_filtro2 = st.columns(2)
-
-    especialidades_filtro = sorted(
-        df_grafico["ESPECIALIDAD_FINAL"]
-        .dropna()
-        .astype(str)
-        .unique()
+    df_grafico["AÑO"] = (
+        df_grafico["FECHA"]
+        .dt.year
+        .astype(int)
     )
 
-    policlinicos_filtro = sorted(
-        df_grafico["POLICLINICO"]
-        .dropna()
-        .astype(str)
-        .unique()
+    df_grafico["MES_NUM"] = (
+        df_grafico["FECHA"]
+        .dt.month
     )
-
-    with col_filtro1:
-
-        especialidad_seleccionada = st.multiselect(
-            "Especialidad",
-            options=especialidades_filtro,
-            default=especialidades_filtro
-        )
-
-    with col_filtro2:
-
-        policlinico_seleccionado = st.multiselect(
-            "Policlínico",
-            options=policlinicos_filtro,
-            default=policlinicos_filtro
-        )
-
-    # =========================
-    # APLICAR FILTROS
-    # =========================
-
-    df_grafico_filtrado = df_grafico[
-        df_grafico["ESPECIALIDAD_FINAL"]
-        .astype(str)
-        .isin(especialidad_seleccionada)
-    ]
-
-    df_grafico_filtrado = df_grafico_filtrado[
-        df_grafico_filtrado["POLICLINICO"]
-        .astype(str)
-        .isin(policlinico_seleccionado)
-    ]
-
-    # =========================
-    # AGRUPAR POR MES
-    # =========================
-
-    tabla_mensual = (
-        df_grafico_filtrado
-        .groupby("MES")
-        .size()
-        .reset_index(name="OMISIONES")
-        .sort_values("MES")
-    )
-
-    # =========================
-    # GRÁFICO
-    # =========================
-
-    fig = px.line(
-        tabla_mensual,
-        x="MES",
-        y="OMISIONES",
-        markers=True,
-        title="Evolución Mensual de Omisiones",
-        labels={
-            "MES": "Mes",
-            "OMISIONES": "Cantidad de Omisiones"
-        }
-    )
-
-    fig.update_traces(
-        line=dict(width=3),
-        marker=dict(size=8)
-    )
-
-    fig.update_layout(
-        xaxis_title="Mes",
-        yaxis_title="Omisiones",
-        hovermode="x unified"
-    )
-
-    st.plotly_chart(
-        fig,
-        use_container_width=True
-    )
-# =========================
-# EVOLUCIÓN POR ESPECIALIDAD
-# =========================
-
-tabla_especialidad_mes = (
-    df_grafico_filtrado
-    .groupby(
-        ["MES", "ESPECIALIDAD_FINAL"]
-    )
-    .size()
-    .reset_index(name="OMISIONES")
-    .sort_values("MES")
-)
-
-fig_especialidad = px.line(
-    tabla_especialidad_mes,
-    x="MES",
-    y="OMISIONES",
-    color="ESPECIALIDAD_FINAL",
-    markers=True,
-    title="Evolución Mensual de Omisiones por Especialidad",
-    labels={
-        "MES": "Mes",
-        "OMISIONES": "Omisiones",
-        "ESPECIALIDAD_FINAL": "Especialidad"
-    }
-)
-
-fig_especialidad.update_layout(
-    xaxis_title="Mes",
-    yaxis_title="Cantidad de Omisiones",
-    hovermode="x unified"
-)
-
-st.plotly_chart(
-    fig_especialidad,
-    use_container_width=True
-)
-# =========================
-# EVOLUCIÓN POR POLICLÍNICO
-# =========================
-
-tabla_policlinico_mes = (
-    df_grafico_filtrado
-    .groupby(
-        ["MES", "POLICLINICO"]
-    )
-    .size()
-    .reset_index(name="OMISIONES")
-    .sort_values("MES")
-)
-
-fig_policlinico = px.line(
-    tabla_policlinico_mes,
-    x="MES",
-    y="OMISIONES",
-    color="POLICLINICO",
-    markers=True,
-    title="Evolución Mensual de Omisiones por Policlínico",
-    labels={
-        "MES": "Mes",
-        "OMISIONES": "Omisiones",
-        "POLICLINICO": "Policlínico"
-    }
-)
-
-fig_policlinico.update_layout(
-    xaxis_title="Mes",
-    yaxis_title="Cantidad de Omisiones",
-    hovermode="x unified"
-)
-
-st.plotly_chart(
-    fig_policlinico,
-    use_container_width=True
-)
-df_asignadas = hoja1[
-    hoja1[col_h1_estado].astype(str).str.upper().eq("ASIGNADA")
-].copy()
-# =========================
-# 📊 GRÁFICOS DE BARRAS
-# EVOLUCIÓN MENSUAL
-# =========================
-
-st.markdown("## 📊 Evolución Mensual de Omisiones")
-
-if "FECHA" not in df_asignadas.columns:
-    st.warning("No se encontró la columna FECHA en Hoja 1.")
-
-elif "POLICLINICO" not in df_asignadas.columns:
-    st.warning("No se encontró la columna POLICLINICO en Hoja 1.")
-
-else:
-
-    df_grafico = df_asignadas.copy()
-
-    # =========================
-    # CONVERTIR FECHA
-    # =========================
-
-    df_grafico["FECHA"] = pd.to_datetime(
-        df_grafico["FECHA"],
-        errors="coerce"
-    )
-
-    df_grafico = df_grafico.dropna(subset=["FECHA"])
-
-    # =========================
-    # CREAR MES
-    # =========================
-
-    df_grafico["MES_NUM"] = df_grafico["FECHA"].dt.month
-    df_grafico["AÑO"] = df_grafico["FECHA"].dt.year
 
     meses = {
         1: "Enero",
@@ -642,112 +486,163 @@ else:
         12: "Diciembre"
     }
 
-    df_grafico["MES"] = df_grafico["MES_NUM"].map(meses)
+    df_grafico["MES"] = (
+        df_grafico["MES_NUM"]
+        .map(meses)
+    )
 
-    # =========================
+    # --------------------------------------------------------
+    # NORMALIZAR ESPECIALIDAD
+    # --------------------------------------------------------
+
+    df_grafico["ESPECIALIDAD_GRAFICO"] = (
+        df_grafico["ESPECIALIDAD_FINAL"]
+        .fillna("NO MEDICO")
+        .astype(str)
+        .str.strip()
+    )
+
+    # --------------------------------------------------------
+    # NORMALIZAR POLICLÍNICO
+    # --------------------------------------------------------
+
+    df_grafico["POLICLINICO_GRAFICO"] = (
+        df_grafico["POLICLINICO"]
+        .fillna("SIN POLICLINICO")
+        .astype(str)
+        .str.strip()
+    )
+
+    # ========================================================
     # FILTROS
-    # =========================
+    # ========================================================
 
-    col1, col2, col3 = st.columns(3)
+    st.markdown("### 🔎 Filtros")
 
-    with col1:
+    filtro1, filtro2, filtro3 = st.columns(3)
 
-        años = sorted(
-            df_grafico["AÑO"]
-            .dropna()
-            .unique()
-        )
+    # --------------------------------------------------------
+    # AÑO
+    # --------------------------------------------------------
+
+    años_disponibles = sorted(
+        df_grafico["AÑO"]
+        .unique()
+        .tolist()
+    )
+
+    with filtro1:
 
         año_seleccionado = st.selectbox(
             "Año",
-            años
+            options=años_disponibles
         )
 
-    with col2:
+    # --------------------------------------------------------
+    # ESPECIALIDAD
+    # --------------------------------------------------------
 
-        especialidades = sorted(
-            df_grafico["ESPECIALIDAD_FINAL"]
-            .dropna()
-            .astype(str)
-            .unique()
-        )
+    especialidades_disponibles = sorted(
+        df_grafico["ESPECIALIDAD_GRAFICO"]
+        .unique()
+        .tolist()
+    )
+
+    with filtro2:
 
         especialidades_seleccionadas = st.multiselect(
             "Especialidad",
-            especialidades,
-            default=especialidades
+            options=especialidades_disponibles,
+            default=especialidades_disponibles
         )
 
-    with col3:
+    # --------------------------------------------------------
+    # POLICLÍNICO
+    # --------------------------------------------------------
 
-        policlinicos = sorted(
-            df_grafico["POLICLINICO"]
-            .dropna()
-            .astype(str)
-            .unique()
-        )
+    policlinicos_disponibles = sorted(
+        df_grafico["POLICLINICO_GRAFICO"]
+        .unique()
+        .tolist()
+    )
+
+    with filtro3:
 
         policlinicos_seleccionados = st.multiselect(
             "Policlínico",
-            policlinicos,
-            default=policlinicos
+            options=policlinicos_disponibles,
+            default=policlinicos_disponibles
         )
 
-    # =========================
-    # FILTRAR
-    # =========================
+    # ========================================================
+    # APLICAR FILTROS
+    # ========================================================
 
-    df_grafico = df_grafico[
-        df_grafico["AÑO"] == año_seleccionado
-    ]
+    df_grafico_filtrado = df_grafico[
+        (df_grafico["AÑO"] == año_seleccionado)
+        &
+        (
+            df_grafico["ESPECIALIDAD_GRAFICO"]
+            .isin(especialidades_seleccionadas)
+        )
+        &
+        (
+            df_grafico["POLICLINICO_GRAFICO"]
+            .isin(policlinicos_seleccionados)
+        )
+    ].copy()
 
-    df_grafico = df_grafico[
-        df_grafico["ESPECIALIDAD_FINAL"]
-        .astype(str)
-        .isin(especialidades_seleccionadas)
-    ]
-
-    df_grafico = df_grafico[
-        df_grafico["POLICLINICO"]
-        .astype(str)
-        .isin(policlinicos_seleccionados)
-    ]
-
-    # =====================================================
+    # ========================================================
     # GRÁFICO 1
     # OMISIONES POR ESPECIALIDAD Y MES
-    # =====================================================
+    # ========================================================
+
+    st.markdown("### 👨‍⚕️ Omisiones por Especialidad")
 
     tabla_especialidad_mes = (
-        df_grafico
+        df_grafico_filtrado
         .groupby(
-            ["MES_NUM", "MES", "ESPECIALIDAD_FINAL"]
+            [
+                "MES_NUM",
+                "MES",
+                "ESPECIALIDAD_GRAFICO"
+            ]
         )
         .size()
-        .reset_index(name="OMISIONES")
-        .sort_values(["MES_NUM", "ESPECIALIDAD_FINAL"])
+        .reset_index(
+            name="OMISIONES"
+        )
+        .sort_values(
+            [
+                "MES_NUM",
+                "ESPECIALIDAD_GRAFICO"
+            ]
+        )
     )
 
     fig_especialidad = px.bar(
         tabla_especialidad_mes,
         x="MES",
         y="OMISIONES",
-        color="ESPECIALIDAD_FINAL",
+        color="ESPECIALIDAD_GRAFICO",
         barmode="group",
         category_orders={
             "MES": list(meses.values())
         },
-        title=f"Omisiones Mensuales por Especialidad - {año_seleccionado}",
+        title=(
+            f"Omisiones Mensuales por Especialidad - "
+            f"{año_seleccionado}"
+        ),
         labels={
             "MES": "Mes",
             "OMISIONES": "Cantidad de Omisiones",
-            "ESPECIALIDAD_FINAL": "Especialidad"
+            "ESPECIALIDAD_GRAFICO": "Especialidad"
         }
     )
 
     fig_especialidad.update_layout(
         xaxis_title="Mes",
-        yaxis_title="Omisiones",
+        yaxis_title="Cantidad de Omisiones",
         legend_title="Especialidad",
         hovermode="x unified"
     )
@@ -757,41 +652,57 @@ else:
         use_container_width=True
     )
 
-    # =====================================================
+    # ========================================================
     # GRÁFICO 2
     # OMISIONES POR POLICLÍNICO Y MES
-    # =====================================================
+    # ========================================================
+
+    st.markdown("### 🏥 Omisiones por Policlínico")
 
     tabla_policlinico_mes = (
-        df_grafico
+        df_grafico_filtrado
         .groupby(
-            ["MES_NUM", "MES", "POLICLINICO"]
+            [
+                "MES_NUM",
+                "MES",
+                "POLICLINICO_GRAFICO"
+            ]
         )
         .size()
-        .reset_index(name="OMISIONES")
-        .sort_values(["MES_NUM", "POLICLINICO"])
+        .reset_index(
+            name="OMISIONES"
+        )
+        .sort_values(
+            [
+                "MES_NUM",
+                "POLICLINICO_GRAFICO"
+            ]
+        )
     )
 
     fig_policlinico = px.bar(
         tabla_policlinico_mes,
         x="MES",
         y="OMISIONES",
-        color="POLICLINICO",
+        color="POLICLINICO_GRAFICO",
         barmode="group",
         category_orders={
             "MES": list(meses.values())
         },
-        title=f"Omisiones Mensuales por Policlínico - {año_seleccionado}",
+        title=(
+            f"Omisiones Mensuales por Policlínico - "
+            f"{año_seleccionado}"
+        ),
         labels={
             "MES": "Mes",
             "OMISIONES": "Cantidad de Omisiones",
-            "POLICLINICO": "Policlínico"
+            "POLICLINICO_GRAFICO": "Policlínico"
         }
     )
 
     fig_policlinico.update_layout(
         xaxis_title="Mes",
-        yaxis_title="Omisiones",
+        yaxis_title="Cantidad de Omisiones",
         legend_title="Policlínico",
         hovermode="x unified"
     )
