@@ -265,6 +265,277 @@ if archivo:
         ),
         axis=1
     )
+# ============================================================
+# 📊 GRÁFICOS DE ASIGNADAS
+# ============================================================
+
+st.markdown("## 📊 Análisis de Horas ASIGNADAS")
+
+# ============================================================
+# VALIDAR FECHA
+# ============================================================
+
+if "FECHA" not in df_asignadas.columns:
+
+    st.error(
+        "La Hoja 1 no contiene la columna FECHA."
+    )
+
+else:
+
+    # --------------------------------------------------------
+    # COPIA EXCLUSIVA DE LAS ASIGNADAS
+    # --------------------------------------------------------
+
+    df_grafico = df_asignadas.copy()
+
+    # --------------------------------------------------------
+    # FECHA
+    # --------------------------------------------------------
+
+    df_grafico["FECHA"] = pd.to_datetime(
+        df_grafico["FECHA"],
+        errors="coerce"
+    )
+
+    # Eliminar solamente fechas inválidas
+    df_grafico = df_grafico[
+        df_grafico["FECHA"].notna()
+    ].copy()
+
+    # --------------------------------------------------------
+    # AÑO
+    # --------------------------------------------------------
+
+    df_grafico["AÑO"] = (
+        df_grafico["FECHA"].dt.year
+    )
+
+    # --------------------------------------------------------
+    # MES
+    # --------------------------------------------------------
+
+    df_grafico["MES_NUM"] = (
+        df_grafico["FECHA"].dt.month
+    )
+
+    meses = {
+        1: "Enero",
+        2: "Febrero",
+        3: "Marzo",
+        4: "Abril",
+        5: "Mayo",
+        6: "Junio",
+        7: "Julio",
+        8: "Agosto",
+        9: "Septiembre",
+        10: "Octubre",
+        11: "Noviembre",
+        12: "Diciembre"
+    }
+
+    df_grafico["MES"] = (
+        df_grafico["MES_NUM"].map(meses)
+    )
+
+    # ========================================================
+    # ESPECIALIDAD
+    # ========================================================
+
+    # Aquí usamos ESPECIALIDAD_FINAL SOLO SI EXISTE.
+    # Si no existe, todos los registros se mantienen.
+
+    if "ESPECIALIDAD_FINAL" in df_grafico.columns:
+
+        df_grafico["ESPECIALIDAD_GRAFICO"] = (
+            df_grafico["ESPECIALIDAD_FINAL"]
+            .fillna("NO INFORMADA")
+            .astype(str)
+            .str.strip()
+        )
+
+    else:
+
+        df_grafico["ESPECIALIDAD_GRAFICO"] = (
+            "NO INFORMADA"
+        )
+
+    # ========================================================
+    # POLICLÍNICO
+    # ========================================================
+
+    if "POLICLINICO" in df_grafico.columns:
+
+        df_grafico["POLICLINICO_GRAFICO"] = (
+            df_grafico["POLICLINICO"]
+            .fillna("SIN POLICLINICO")
+            .astype(str)
+            .str.strip()
+        )
+
+    else:
+
+        st.error(
+            "La Hoja 1 no contiene la columna POLICLINICO."
+        )
+
+        st.stop()
+
+    # ========================================================
+    # FILTRO DE AÑO
+    # ========================================================
+
+    años_disponibles = sorted(
+        df_grafico["AÑO"]
+        .dropna()
+        .unique()
+        .tolist()
+    )
+
+    if not años_disponibles:
+
+        st.warning(
+            "No existen fechas válidas para generar los gráficos."
+        )
+
+    else:
+
+        año_seleccionado = st.selectbox(
+            "Seleccionar año",
+            años_disponibles
+        )
+
+        df_grafico = df_grafico[
+            df_grafico["AÑO"] == año_seleccionado
+        ].copy()
+
+        # ====================================================
+        # GRÁFICO 1
+        # ESPECIALIDADES
+        # ====================================================
+
+        st.markdown(
+            "### 👨‍⚕️ Horas ASIGNADAS por Especialidad"
+        )
+
+        tabla_especialidad = (
+            df_grafico
+            .groupby(
+                [
+                    "ESPECIALIDAD_GRAFICO",
+                    "MES_NUM",
+                    "MES"
+                ],
+                dropna=False
+            )
+            .size()
+            .reset_index(
+                name="TOTAL_ASIGNADAS"
+            )
+            .sort_values(
+                [
+                    "ESPECIALIDAD_GRAFICO",
+                    "MES_NUM"
+                ]
+            )
+        )
+
+        fig_especialidad = px.bar(
+            tabla_especialidad,
+            x="TOTAL_ASIGNADAS",
+            y="ESPECIALIDAD_GRAFICO",
+            color="MES",
+            orientation="h",
+            barmode="group",
+            category_orders={
+                "MES": list(meses.values())
+            },
+            labels={
+                "TOTAL_ASIGNADAS": "Total ASIGNADAS",
+                "ESPECIALIDAD_GRAFICO": "Especialidad",
+                "MES": "Mes"
+            },
+            title=(
+                f"Total de Horas ASIGNADAS por "
+                f"Especialidad - {año_seleccionado}"
+            )
+        )
+
+        fig_especialidad.update_layout(
+            xaxis_title="Total de horas ASIGNADAS",
+            yaxis_title="Especialidad",
+            legend_title="Mes",
+            height=700
+        )
+
+        st.plotly_chart(
+            fig_especialidad,
+            use_container_width=True
+        )
+
+        # ====================================================
+        # GRÁFICO 2
+        # POLICLÍNICO
+        # ====================================================
+
+        st.markdown(
+            "### 🏥 Horas ASIGNADAS por Policlínico"
+        )
+
+        tabla_policlinico = (
+            df_grafico
+            .groupby(
+                [
+                    "POLICLINICO_GRAFICO",
+                    "MES_NUM",
+                    "MES"
+                ],
+                dropna=False
+            )
+            .size()
+            .reset_index(
+                name="TOTAL_ASIGNADAS"
+            )
+            .sort_values(
+                [
+                    "POLICLINICO_GRAFICO",
+                    "MES_NUM"
+                ]
+            )
+        )
+
+        fig_policlinico = px.bar(
+            tabla_policlinico,
+            x="TOTAL_ASIGNADAS",
+            y="POLICLINICO_GRAFICO",
+            color="MES",
+            orientation="h",
+            barmode="group",
+            category_orders={
+                "MES": list(meses.values())
+            },
+            labels={
+                "TOTAL_ASIGNADAS": "Total ASIGNADAS",
+                "POLICLINICO_GRAFICO": "Policlínico",
+                "MES": "Mes"
+            },
+            title=(
+                f"Total de Horas ASIGNADAS por "
+                f"Policlínico - {año_seleccionado}"
+            )
+        )
+
+        fig_policlinico.update_layout(
+            xaxis_title="Total de horas ASIGNADAS",
+            yaxis_title="Policlínico",
+            legend_title="Mes",
+            height=700
+        )
+
+        st.plotly_chart(
+            fig_policlinico,
+            use_container_width=True
+        )
 
     # =========================
     # BASES
@@ -393,13 +664,9 @@ if archivo:
         file_name="resultado.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
-df_asignadas = hoja1[
-    hoja1[col_h1_estado].astype(str).str.upper().eq("ASIGNADA")
-].copy()
-# =========================================================
-# BASE ÚNICA PARA GRÁFICOS
-# TODAS LAS ASIGNADAS DE HOJA 1
-# =========================================================
+# =========================
+# BASE ASIGNADAS
+# =========================
 
 df_asignadas = hoja1.copy()
 
@@ -411,217 +678,12 @@ df_asignadas[col_h1_estado] = (
     .str.upper()
 )
 
-# SOLO REGISTROS ASIGNADA
+# SOLO ASIGNADAS DE HOJA 1
 df_asignadas = df_asignadas[
     df_asignadas[col_h1_estado] == "ASIGNADA"
 ].copy()
 
-# =========================================================
-# VERIFICACIÓN
-# =========================================================
-
-st.success(
-    f"Total de registros ASIGNADA en Hoja 1: {len(df_asignadas):,}"
-)
-# =========================================================
-# 📊 OMISIONES ASIGNADAS POR ESPECIALIDAD
-# =========================================================
-
-st.markdown("## 📊 Omisiones ASIGNADAS - Hoja 1")
-
-df_grafico = df_asignadas.copy()
-
-# ---------------------------------------------------------
-# FECHA
-# ---------------------------------------------------------
-
-df_grafico["FECHA"] = pd.to_datetime(
-    df_grafico["FECHA"],
-    errors="coerce"
-)
-
-df_grafico = df_grafico.dropna(
-    subset=["FECHA"]
-).copy()
-
-# ---------------------------------------------------------
-# AÑO Y MES
-# ---------------------------------------------------------
-
-df_grafico["AÑO"] = df_grafico["FECHA"].dt.year
-df_grafico["MES_NUM"] = df_grafico["FECHA"].dt.month
-
-meses = {
-    1: "Enero",
-    2: "Febrero",
-    3: "Marzo",
-    4: "Abril",
-    5: "Mayo",
-    6: "Junio",
-    7: "Julio",
-    8: "Agosto",
-    9: "Septiembre",
-    10: "Octubre",
-    11: "Noviembre",
-    12: "Diciembre"
-}
-
-df_grafico["MES"] = (
-    df_grafico["MES_NUM"].map(meses)
-)
-
-# ---------------------------------------------------------
-# ESPECIALIDAD
-# ---------------------------------------------------------
-
-df_grafico["ESPECIALIDAD_GRAFICO"] = (
-    df_grafico["ESPECIALIDAD_FINAL"]
-    .fillna("NO INFORMADA")
-    .astype(str)
-    .str.strip()
-)
-
-# =========================================================
-# FILTRO AÑO
-# =========================================================
-
-años = sorted(
-    df_grafico["AÑO"]
-    .dropna()
-    .unique()
-)
-
-año_seleccionado = st.selectbox(
-    "Seleccionar año",
-    años
-)
-
-df_grafico = df_grafico[
-    df_grafico["AÑO"] == año_seleccionado
-].copy()
-
-# =========================================================
-# TABLA
-# =========================================================
-
-tabla_especialidad_mes = (
-    df_grafico
-    .groupby(
-        [
-            "ESPECIALIDAD_GRAFICO",
-            "MES_NUM",
-            "MES"
-        ],
-        dropna=False
-    )
-    .size()
-    .reset_index(
-        name="OMISIONES"
-    )
-)
-
-# =========================================================
-# GRÁFICO
-# =========================================================
-
-fig_especialidad = px.bar(
-    tabla_especialidad_mes,
-    x="OMISIONES",
-    y="ESPECIALIDAD_GRAFICO",
-    color="MES",
-    orientation="h",
-    barmode="group",
-    category_orders={
-        "MES": list(meses.values())
-    },
-    title=(
-        f"Total de Horas ASIGNADAS por Especialidad "
-        f"- {año_seleccionado}"
-    ),
-    labels={
-        "OMISIONES": "Total ASIGNADAS",
-        "ESPECIALIDAD_GRAFICO": "Especialidad",
-        "MES": "Mes"
-    }
-)
-
-fig_especialidad.update_layout(
-    xaxis_title="Total de horas ASIGNADAS",
-    yaxis_title="Especialidad",
-    legend_title="Mes",
-    height=700
-)
-
-st.plotly_chart(
-    fig_especialidad,
-    use_container_width=True
-)
-# =========================================================
-# 🏥 OMISIONES ASIGNADAS POR POLICLÍNICO
-# =========================================================
-
-st.markdown("## 🏥 Omisiones ASIGNADAS por Policlínico")
-
-df_grafico["POLICLINICO_GRAFICO"] = (
-    df_grafico["POLICLINICO"]
-    .fillna("SIN INFORMACIÓN")
-    .astype(str)
-    .str.strip()
-)
-
-# =========================================================
-# TABLA
-# =========================================================
-
-tabla_policlinico_mes = (
-    df_grafico
-    .groupby(
-        [
-            "POLICLINICO_GRAFICO",
-            "MES_NUM",
-            "MES"
-        ],
-        dropna=False
-    )
-    .size()
-    .reset_index(
-        name="OMISIONES"
-    )
-)
-
-# =========================================================
-# GRÁFICO
-# =========================================================
-
-fig_policlinico = px.bar(
-    tabla_policlinico_mes,
-    x="OMISIONES",
-    y="POLICLINICO_GRAFICO",
-    color="MES",
-    orientation="h",
-    barmode="group",
-    category_orders={
-        "MES": list(meses.values())
-    },
-    title=(
-        f"Total de Horas ASIGNADAS por Policlínico "
-        f"- {año_seleccionado}"
-    ),
-    labels={
-        "OMISIONES": "Total ASIGNADAS",
-        "POLICLINICO_GRAFICO": "Policlínico",
-        "MES": "Mes"
-    }
-)
-
-fig_policlinico.update_layout(
-    xaxis_title="Total de horas ASIGNADAS",
-    yaxis_title="Policlínico",
-    legend_title="Mes",
-    height=700
-)
-
-st.plotly_chart(
-    fig_policlinico,
-    use_container_width=True
+st.info(
+    f"Registros ASIGNADA encontrados en Hoja 1: "
+    f"{len(df_asignadas):,}"
 )
