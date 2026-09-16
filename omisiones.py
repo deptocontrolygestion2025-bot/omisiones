@@ -711,3 +711,123 @@ else:
         fig_policlinico,
         use_container_width=True
     )
+# ========================================================
+# 📊 GRÁFICOS HORIZONTALES
+# ========================================================
+
+st.markdown("## 📊 Omisiones Mensuales")
+
+# ========================================================
+# GRÁFICO 1
+# ESPECIALIDADES EN BARRA HORIZONTAL
+# ========================================================
+
+st.markdown("### 👨‍⚕️ Omisiones por Especialidad y Mes")
+
+tabla_especialidad_mes = (
+    df_grafico_filtrado
+    .groupby(
+        [
+            "ESPECIALIDAD_GRAFICO",
+            "MES_NUM",
+            "MES"
+        ]
+    )
+    .size()
+    .reset_index(name="OMISIONES")
+    .sort_values(
+        ["ESPECIALIDAD_GRAFICO", "MES_NUM"]
+    )
+)
+
+fig_especialidad = px.bar(
+    tabla_especialidad_mes,
+    x="OMISIONES",
+    y="ESPECIALIDAD_GRAFICO",
+    color="MES",
+    orientation="h",
+    barmode="group",
+    category_orders={
+        "MES": list(meses.values())
+    },
+    title=(
+        f"Omisiones por Especialidad - "
+        f"{año_seleccionado}"
+    ),
+    labels={
+        "OMISIONES": "Cantidad de Omisiones",
+        "ESPECIALIDAD_GRAFICO": "Especialidad",
+        "MES": "Mes"
+    }
+)
+
+fig_especialidad.update_layout(
+    xaxis_title="Cantidad de Omisiones",
+    yaxis_title="Especialidad",
+    legend_title="Mes",
+    height=700,
+    hovermode="closest"
+)
+
+st.plotly_chart(
+    fig_especialidad,
+    use_container_width=True
+)
+
+
+# ========================================================
+# GRÁFICO 2
+# POLICLÍNICOS EN BARRA HORIZONTAL
+# ========================================================
+
+st.markdown("### 🏥 Omisiones por Policlínico y Mes")
+
+tabla_policlinico_mes = (
+    df_grafico_filtrado
+    .groupby(
+        [
+            "POLICLINICO_GRAFICO",
+            "MES_NUM",
+            "MES"
+        ]
+    )
+    .size()
+    .reset_index(name="OMISIONES")
+    .sort_values(
+        ["POLICLINICO_GRAFICO", "MES_NUM"]
+    )
+)
+
+fig_policlinico = px.bar(
+    tabla_policlinico_mes,
+    x="OMISIONES",
+    y="POLICLINICO_GRAFICO",
+    color="MES",
+    orientation="h",
+    barmode="group",
+    category_orders={
+        "MES": list(meses.values())
+    },
+    title=(
+        f"Omisiones por Policlínico - "
+        f"{año_seleccionado}"
+    ),
+    labels={
+        "OMISIONES": "Cantidad de Omisiones",
+        "POLICLINICO_GRAFICO": "Policlínico",
+        "MES": "Mes"
+    }
+)
+
+fig_policlinico.update_layout(
+    xaxis_title="Cantidad de Omisiones",
+    yaxis_title="Policlínico",
+    legend_title="Mes",
+    height=700,
+    hovermode="closest"
+)
+
+st.plotly_chart(
+    fig_policlinico,
+    use_container_width=True
+)
